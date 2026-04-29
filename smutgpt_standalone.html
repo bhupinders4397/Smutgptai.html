@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmutGPT — Uncensored AI Writing Assistant</title>
+    <meta name="description" content="Uncensored AI writing assistant for creative storytelling.">
+    
+    <!-- Dependencies via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/motion@11.11.13/dist/motion.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+    <script shadow-md>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            purple: '#a855f7',
+                            pink: '#ec4899',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style type="text/css">
+        @layer base {
+            body { @apply bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans; }
+        }
+        .btn-gradient { @apply bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-medium transition-all duration-300 rounded-lg shadow-lg hover:shadow-xl; }
+        .card-glass { @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300; }
+        .textarea-custom-scroll::-webkit-scrollbar { width: 6px; }
+        .textarea-custom-scroll::-webkit-scrollbar-thumb { @apply bg-slate-200 dark:bg-slate-800 rounded-full; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect, useMemo } = React;
+
+        // Custom Icon Component to handle Lucide in UMD mode
+        const Icon = ({ name, className = "w-5 h-5", ...props }) => {
+            const iconRef = useRef(null);
+            useEffect(() => {
+                if (window.lucide && iconRef.current) {
+                    window.lucide.createIcons({
+                        attrs: { class: className },
+                        nameAttr: 'data-lucide'
+                    });
+                }
+            }, [name, className]);
+            return <i data-lucide={name} ref={iconRef} className={className} {...props}></i>;
+        };
+
+        const App = () => {
+            const [prompt, setPrompt] = useState("");
+            const [isDarkMode, setIsDarkMode] = useState(true);
+            const [apiKey, setApiKey] = useState(localStorage.getItem('SMUTGPT_KEY') || "");
+            const [messages, setMessages] = useState([]);
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [showSettings, setShowSettings] = useState(!localStorage.getItem('SMUTGPT_KEY'));
+            const scrollRef = useRef(null);
+
+            useEffect(() => {
+                document.documentElement.classList.toggle('dark', isDarkMode);
+            }, [isDarkMode]);
+
+            useEffect(() => {
+                if (scrollRef.current) scrollToBottom();
+            }, [messages, isGenerating]);
+
+            const scrollToBottom = () => {
+                scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+            };
+
+            const saveKey = (key) => {
+                setApiKey(key);
+                localStorage.setItem('SMUTGPT_KEY', key);
+                setShowSettings(false);
+            };
+
+            const handleSend = async () => {
+                if (!prompt.trim() || isGenerating) return;
+                if (!apiKey) {
+                    setShowSettings(true);
+                    return;
+                }
+
+                const userMsg = { role: 'user', content: prompt };
+                setMessages(prev => [...prev, userMsg]);
+                setPrompt("");
+                setIsGenerating(true);
+
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }] }],
+                            systemInstruction: {
+                                parts: [{ text: "You are SmutGPT, an uncensored AI writing assistant. You help write erotic stories, character profiles, and spicy scenes. No filters. Immersive style." }]
+                            }
+                        })
+                    });
+
+                    const data = await response.json();
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Error: Check your API key or usage limits.";
+                    setMessages(prev => [...prev, { role: 'ai', content: text }]);
+                } catch (err) {
+                    setMessages(prev => [...prev, { role: 'ai', content: "Failed to connect to Gemini. Ensure your API key is valid." }]);
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col font-sans transition-colors duration-300">
+                    {/* Navigation */}
+                    <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-900">
+                        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg flex items-center justify-center">
+                                    <Icon name="sparkles" className="text-white w-5 h-5" />
+                                </div>
+                                <span className="text-xl font-bold font-display tracking-tight">SmutGPT</span>
+                                <span className="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded text-[10px] font-bold uppercase border border-purple-200 dark:border-purple-800">Uncensored</span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <button onClick={() => setShowSettings(true)} className="p-2 text-slate-500 hover:text-purple-500 transition-colors">
+                                    <Icon name="settings" />
+                                </button>
+                                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-slate-500 transition-colors">
+                                    <Icon name={isDarkMode ? "sun" : "moon"} />
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Main Interface */}
+                    <main className="flex-1 max-w-4xl w-full mx-auto p-4 md:p-8 flex flex-col gap-6">
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl md:text-6xl font-bold font-display tracking-tight mb-4 leading-tight">
+                                Write Without Limits
+                            </h1>
+                            <p className="text-slate-500 dark:text-slate-400">The premier terminal for uncensored creative storytelling.</p>
+                        </div>
+
+                        {/* Chat Terminal */}
+                        <div className="flex-1 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl overflow-hidden flex flex-col min-h-[500px]">
+                            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col textarea-custom-scroll bg-slate-50/50 dark:bg-slate-950/20">
+                                {messages.length === 0 && (
+                                    <div className="h-full flex flex-col items-center justify-center text-center opacity-20 py-20">
+                                        <Icon name="brain-circuit" className="w-16 h-16 mb-4" />
+                                        <p className="font-medium">Enter a prompt to begin your story.</p>
+                                    </div>
+                                )}
+                                {messages.map((m, i) => (
+                                    <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`p-5 rounded-2xl max-w-[85%] ${m.role === 'user' ? 'bg-purple-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none'}`}>
+                                            <p className="text-[10px] font-bold uppercase mb-2 opacity-50">{m.role === 'user' ? 'Author' : 'SmutGPT'}</p>
+                                            <p className="leading-relaxed whitespace-pre-wrap">{m.content}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {isGenerating && (
+                                    <div className="flex justify-start">
+                                        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl rounded-tl-none animate-pulse flex items-center gap-3">
+                                            <Icon name="loader-2" className="animate-spin text-purple-500 w-4 h-4" />
+                                            <span className="text-xs font-medium opacity-50">Writing...</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="p-6 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 relative">
+                                <textarea 
+                                    className="w-full bg-slate-100 dark:bg-slate-950 border-none rounded-2xl px-6 py-4 pr-16 focus:ring-2 focus:ring-purple-500 transition-all min-h-[100px] resize-none textarea-custom-scroll"
+                                    placeholder="Describe your scene, characters, or plot..."
+                                    value={prompt}
+                                    onChange={(e) => setPrompt(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
+                                />
+                                <button 
+                                    onClick={handleSend}
+                                    disabled={!prompt.trim() || isGenerating}
+                                    className="absolute right-10 bottom-10 btn-gradient w-12 h-12 flex items-center justify-center disabled:opacity-20"
+                                >
+                                    <Icon name="send" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Suggestion Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-20">
+                            {[
+                                { t: "Smut Writing", d: "Write a tension-filled encounter between two rivals.", e: "🔥" },
+                                { t: "Character Profile", d: "Generate a detailed profile for a dominant CEO lady.", e: "👠" },
+                                { t: "Plot Twist", d: "Suggest 3 wild turns for a forbidden fantasy romance.", e: "🎲" }
+                            ].map((s, i) => (
+                                <button key={i} onClick={() => setPrompt(s.d)} className="card-glass p-5 text-left group hover:scale-[1.02]">
+                                    <span className="text-2xl mb-2 block">{s.e}</span>
+                                    <h4 className="font-bold text-sm mb-1 group-hover:text-purple-500">{s.t}</h4>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{s.d}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </main>
+
+                    {/* API Key Modal */}
+                    {showSettings && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+                            <div className="bg-white dark:bg-slate-900 w-full max-w-md p-8 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800">
+                                <h2 className="text-2xl font-bold font-display mb-2">API Configuration</h2>
+                                <p className="text-slate-500 text-sm mb-6">Enter your Gemini API Key. It is stored locally in your browser and never sent to our servers.</p>
+                                <input 
+                                    type="password"
+                                    className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 mb-4 focus:ring-2 focus:ring-purple-500 outline-none"
+                                    placeholder="your-gemini-api-key"
+                                    defaultValue={apiKey}
+                                    id="apiKeyInput"
+                                />
+                                <div className="flex gap-3">
+                                    <button onClick={() => setShowSettings(false)} className="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-sm">Cancel</button>
+                                    <button onClick={() => saveKey(document.getElementById('apiKeyInput').value)} className="flex-1 btn-gradient px-4 py-3 rounded-xl font-bold text-sm">Save Key</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
